@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZovApp Messenger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+         /* Основные стили */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            height: 100%;
+        }
+        
+        /* Анимации */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Стили для чата */
+        .chat-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 640px) {
+            .chat-container {
+                height: calc(100vh - 160px);
+            }
+        }
+        
+        .admin-badge {
+            background-color: #4f46e5;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .message-actions {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .message-container:hover .message-actions {
+            opacity: 1;
+        }
+        
+        .avatar-upload {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        
+        .avatar-upload input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+        }
+        
+        .avatar-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .message-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+        }
+        
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+        }
+        
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .voice-message {
+            display: flex;
+            align-items: center;
+            background: #f3f4f6;
+            padding: 8px 12px;
+            border-radius: 18px;
+            margin-top: 8px;
+        }
+        
+        .voice-player {
+            flex: 1;
+            margin: 0 8px;
+        }
+        
+        .voice-duration {
+            font-size: 12px;
+            color: #6b7280;
+            margin-left: 8px;
+        }
+        
+        .recording-indicator {
+            display: flex;
+            align-items: center;
+            color: #ef4444;
+        }
+        
+        .recording-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            height: 20px;
+        }
+        
+        .wave-bar {
+            width: 2px;
+            background-color: #4f46e5;
+            margin: 0 1px;
+            border-radius: 1px;
+            transition: height 0.1s ease;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(to right, #FF4D4D, #FF9800, #FFFF00, #00FF00, #00FFFF, #004DFF, #9800FF);
+            background-size: 400%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: gradient-shift 10s ease infinite alternate;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+        
+        /* Новые стили для приватных сообщений */
+        .users-sidebar {
+            width: 300px;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            background: white;
+        }
+        
+        .user-item {
+            transition: background-color 0.2s;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .user-item:hover {
+            background-color: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .user-item.active {
+            background-color: #eef2ff;
+            border-radius: 8px;
+        }
+        
+        .chat-header {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px;
+            background: white;
+            display: flex;
+            align-items: center;
+        }
+        
+        @media (max-width: 768px) {
+            .users-sidebar {
+                width: 100%;
+                position: absolute;
+                z-index: 10;
+                background: white;
+                height: 100%;
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+            
+            .users-sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .toggle-sidebar {
+                display: block !important;
+            }
+        }
+        
+        .unread-badge {
+            background-color: #ef4444;
+            color: white;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            margin-left: auto;
+        }
+        
+        .online-indicator {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            border: 2px solid white;
+        }
+        
+        .chat-layout {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        .main-chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .auth-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+        }
+        
+        .new-chat-modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .new-chat-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+         <!-- Auth Screen -->
+        <div id="auth-screen" class="auth-container">
+            <div class="auth-box fade-in">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-indigo-600 gradient-text">ZovApp</h1>
+                    <p class="text-gray-600 mt-2">Connect with people around you</p>
+                </div>
+
+                <div id="auth-tabs" class="flex border-b border-gray-200 mb-6">
+                    <button id="login-tab" class="flex-1 py-2 font-medium text-center text-indigo-600 border-b-2 border-indigo-600">Login</button>
+                    <button id="register-tab" class="flex-1 py-2 font-medium text-center text-gray-500 hover:text-indigo-600">Register</button>
+                </div>
+                
+                <!-- Login Form -->
+                <div id="login-form" class="space-y-4">
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="login-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="login-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
+                    </div>
+                    <button id="login-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center">
+                        <span class="material-icons mr-2">login</span>
+                        Login
+                    </button>
+                    <div id="login-error" class="text-red-500 text-sm mt-2 hidden"></div>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="register-form" class="space-y-4 hidden">
+                    <div>
+                        <label for="register-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" id="register-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Your name">
+                    </div>
+                    <div>
+                        <label for="register-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="register-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label for="register-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="register-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
+                    </div>
+                    <div>
+                        <label for="register-confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <input type="password" id="register-confirm-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="avatar-upload">
+                            <img id="register-avatar-preview" src="https://ui-avatars.com/api/?name=New+User&background=4f46e5&color=fff" class="avatar-preview">
+                            <input type="file" id="register-avatar" accept="image/*">
+                        </div>
+                        <span class="text-sm text-gray-600">Upload profile picture</span>
+                    </div>
+                    <button id="register-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center">
+                        <span class="material-icons mr-2">person_add</span>
+                        Register
+                    </button>
+                    <div id="register-error" class="text-red-500 text-sm mt-2 hidden"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="hidden h-screen flex flex-col">
+            <!-- Header -->
+            <header class="bg-indigo-600 text-white p-4 shadow-md">
+                <div class="container mx-auto flex justify-between items-center">
+                    <div class="flex items-center">
+                        <button id="toggle-sidebar" class="toggle-sidebar hidden mr-3 text-white">
+                            <span class="material-icons">menu</span>
+                        </button>
+                        <h1 class="text-xl font-bold" id="chat-title">ZovApp Chat</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="avatar-upload relative">
+                                <img id="user-avatar" src="https://ui-avatars.com/api/?name=User&background=4f46e5&color=fff" class="avatar-preview">
+                                <input type="file" id="update-avatar" accept="image/*" class="hidden">
+                                <button id="avatar-upload-btn" class="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm">
+                                    <span class="material-icons text-indigo-600 text-sm">edit</span>
+                                </button>
+                            </div>
+                            <div>
+                                <span id="user-name" class="font-medium"></span>
+                                <span id="admin-badge" class="admin-badge hidden">ADMIN</span>
+                            </div>
+                        </div>
+                        <button id="logout-btn" class="bg-white text-indigo-600 px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-100 transition">
+                            <span class="material-icons align-middle text-base">logout</span> Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Chat Area -->
+            <div class="chat-layout">
+                <!-- Users Sidebar -->
+                <div id="users-sidebar" class="users-sidebar">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="font-semibold text-gray-700 mb-2">Chats</h2>
+                        <div class="flex space-x-2">
+                            <button id="general-chat-btn" class="flex-1 bg-indigo-600 text-white py-1 px-3 rounded text-sm">
+                                General
+                            </button>
+                            <button id="new-chat-btn" class="flex-1 bg-gray-200 text-gray-700 py-1 px-3 rounded text-sm hover:bg-gray-300">
+                                New Chat
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-2">
+                        <div class="user-item active p-3 rounded-lg cursor-pointer mb-1 flex items-center" data-uid="general">
+                            <div class="relative mr-3">
+                                <img src="https://ui-avatars.com/api/?name=General+Chat&background=4f46e5&color=fff" class="w-10 h-10 rounded-full">
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium truncate">General Chat</p>
+                                <p class="text-sm text-gray-500 truncate">Everyone's conversation</p>
+                            </div>
+                        </div>
+                        <div id="users-list" class="mt-2">
+                            <!-- Users will be listed here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Container -->
+                <div class="main-chat-area">
+                    <div id="current-chat-info" class="chat-header">
+                        <div class="relative mr-3">
+                            <img id="current-chat-avatar" src="https://ui-avatars.com/api/?name=General+Chat&background=4f46e5&color=fff" class="w-10 h-10 rounded-full">
+                        </div>
+                        <div>
+                            <h3 id="current-chat-name" class="font-semibold">General Chat</h3>
+                            <p id="current-chat-status" class="text-sm text-gray-500">Online</p>
+                        </div>
+                    </div>
+                    
+                    <div id="chat-messages" class="chat-container p-4 space-y-3 bg-gray-50">
+                        <!-- Messages will appear here -->
+                        <div class="text-center text-gray-500 py-10">
+                            <div class="material-icons text-4xl mb-2">forum</div>
+                            <p>No messages yet. Start a conversation!</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Message Input -->
+                    <div class="bg-white rounded-lg shadow-md p-4 mt-auto">
+                        <div class="flex space-x-2">
+                            <input type="text" id="message-input" placeholder="Type your message..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <div class="flex space-x-2">
+                                <button id="upload-image-btn" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition flex items-center">
+                                    <span class="material-icons mr-1">image</span>
+                                </button>
+                                <input type="file" id="image-upload" accept="image/*" class="hidden">
+                                <button id="record-voice-btn" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition flex items-center">
+                                    <span class="material-icons mr-1">mic</span>
+                                </button>
+                                <button id="send-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center">
+                                    <span class="material-icons mr-1">send</span> Send
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Recording UI -->
+                        <div id="recording-ui" class="hidden mt-3 p-3 bg-red-50 rounded-lg items-center">
+                            <div class="recording-indicator">
+                                <div class="recording-dot"></div>
+                                <span class="text-sm text-red-600">Recording...</span>
+                            </div>
+                            <div class="voice-wave ml-4" id="voice-wave">
+                                <div class="wave-bar" style="height: 5px;"></div>
+                                <div class="wave-bar" style="height: 8px;"></div>
+                                <div class="wave-bar" style="height: 12px;"></div>
+                                <div class="wave-bar" style="height: 15px;"></div>
+                                <div class="wave-bar" style="height: 12px;"></div>
+                                <div class="wave-bar" style="height: 8px;"></div>
+                                <div class="wave-bar" style="height: 5px;"></div>
+                            </div>
+                            <div class="ml-auto">
+                                <span id="recording-timer" class="text-sm text-red-600 mr-3">0:00</span>
+                                <button id="stop-recording-btn" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
+                                    Stop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+    </div>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="modal">
+        <span class="close-modal material-icons" onclick="closeModal()">close</span>
+        <img id="modal-image" class="modal-content">
+    </div>
+
+    <!-- New Chat Modal -->
+    <div id="new-chat-modal" class="new-chat-modal">
+        <div class="new-chat-content">
+            <h2 class="text-xl font-semibold mb-4">Start a new conversation</h2>
+            <div class="mb-4">
+                <input type="text" id="user-search" placeholder="Search users by email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div id="search-results" class="mb-4 max-h-60 overflow-y-auto">
+                <!-- Search results will appear here -->
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="cancel-new-chat" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration for ZovApp project
+        const firebaseConfigMessages = {
+        apiKey: "AIzaSyC0xU9avHfZCOZvWfxd2tKN0rM7f_06hJM",
+        authDomain: "zovapp-53cf9.firebaseapp.com",
+        databaseURL: "https://zovapp-53cf9-default-rtdb.firebaseio.com",
+        projectId: "zovapp-53cf9",
+        storageBucket: "zovapp-53cf9.appspot.com",
+        messagingSenderId: "873287271409",
+        appId: "1:873287271409:android:1683083c9ee44b1576ba50"
+    };
+
+    // Вторая конфигурация для хранения мультимедиа (изображения и голосовые сообщения)
+    const firebaseConfigStorage = {
+        apiKey: "AIzaSyCjNoNHDvZeyAjYmRAVneAKfS7i2ajF_D8",
+        authDomain: "chatik-742cf.firebaseapp.com",
+        databaseURL: "https://chatik-742cf-default-rtdb.firebaseio.com",
+        projectId: "chatik-742cf",
+        storageBucket: "chatik-742cf.appspot.com",
+        messagingSenderId: "969804513848",
+        appId: "1:969804513848:android:3e61dd54c3b0d752419ccd"
+    };
+
+    // Инициализация двух проектов Firebase
+    const appMessages = firebase.initializeApp(firebaseConfigMessages, "messagesApp");
+    const appStorage = firebase.initializeApp(firebaseConfigStorage, "storageApp");
+
+    // Получаем доступ к сервисам
+    const auth = appMessages.auth();
+    const database = appMessages.database();
+    const storage = appStorage.storage();
+
+        // DOM Elements
+        const authScreen = document.getElementById('auth-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const loginTab = document.getElementById('login-tab');
+        const registerTab = document.getElementById('register-tab');
+        const loginBtn = document.getElementById('login-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const userNameDisplay = document.getElementById('user-name');
+        const loginError = document.getElementById('login-error');
+        const registerError = document.getElementById('register-error');
+        const adminBadge = document.getElementById('admin-badge');
+        const userAvatar = document.getElementById('user-avatar');
+        const updateAvatar = document.getElementById('update-avatar');
+        const avatarUploadBtn = document.getElementById('avatar-upload-btn');
+        const uploadImageBtn = document.getElementById('upload-image-btn');
+        const imageUpload = document.getElementById('image-upload');
+        const registerAvatar = document.getElementById('register-avatar');
+        const registerAvatarPreview = document.getElementById('register-avatar-preview');
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const recordVoiceBtn = document.getElementById('record-voice-btn');
+        const recordingUI = document.getElementById('recording-ui');
+        const stopRecordingBtn = document.getElementById('stop-recording-btn');
+        const recordingTimer = document.getElementById('recording-timer');
+        const voiceWave = document.getElementById('voice-wave');
+        
+        // Новые элементы для приватных сообщений
+        const usersSidebar = document.getElementById('users-sidebar');
+        const usersList = document.getElementById('users-list');
+        const generalChatBtn = document.getElementById('general-chat-btn');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+        const chatTitle = document.getElementById('chat-title');
+        const currentChatInfo = document.getElementById('current-chat-info');
+        const currentChatAvatar = document.getElementById('current-chat-avatar');
+        const currentChatName = document.getElementById('current-chat-name');
+        const currentChatStatus = document.getElementById('current-chat-status');
+        const newChatModal = document.getElementById('new-chat-modal');
+        const userSearch = document.getElementById('user-search');
+        const searchResults = document.getElementById('search-results');
+        const cancelNewChat = document.getElementById('cancel-new-chat');
+        // Admin credentials
+        const ADMIN_EMAIL = "ml7541556@gmail.com";
+
+        // Переменные для приватных сообщений
+        let currentChat = 'general'; // 'general' или ID пользователя
+        let onlineUsers = {}; // Отслеживание онлайн-статуса
+        let usersRef; // Ссылка на пользователей в БД
+        let privateMessagesRef; // Ссылка на приватные сообщения
+        let userChatsRef; // Ссылка на чаты пользователя
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingStartTime;
+        let recordingTimerInterval;
+        let waveBars = [];
+
+        // Инициализация при загрузке
+        function initPrivateMessaging() {
+            // Ссылки на данные в БД
+            usersRef = database.ref('users');
+            privateMessagesRef = database.ref('privateMessages');
+            userChatsRef = database.ref('userChats');
+            
+            // Слушатель для списка пользователей
+            usersRef.on('value', (snapshot) => {
+                const users = snapshot.val() || {};
+                updateOnlineUsers(users);
+            });
+            
+            // Загрузка чатов текущего пользователя
+            const currentUserId = auth.currentUser.uid;
+            userChatsRef.child(currentUserId).on('value', (snapshot) => {
+                const chats = snapshot.val() || {};
+                renderUsersList(chats);
+            });
+            
+            // Слушатель для онлайн-статуса
+            database.ref('.info/connected').on('value', (snapshot) => {
+                if (snapshot.val() === true) {
+                    // Пользователь онлайн
+                    const user = auth.currentUser;
+                    if (user) {
+                        const userStatusRef = database.ref('status/' + user.uid);
+                        
+                        // Установить статус онлайн
+                        userStatusRef.set({
+                            online: true,
+                            lastSeen: Date.now()
+                        });
+                        
+                        // Установить обработчик отключения
+                        userStatusRef.onDisconnect().set({
+                            online: false,
+                            lastSeen: Date.now()
+                        });
+                    }
+                }
+            });
+            
+            // Слушатель для статусов пользователей
+            database.ref('status').on('value', (snapshot) => {
+                const statuses = snapshot.val() || {};
+                onlineUsers = statuses;
+                updateUsersOnlineStatus();
+            });
+            
+            // Обработчики кнопок
+            generalChatBtn.addEventListener('click', () => switchToChat('general'));
+            newChatBtn.addEventListener('click', showNewChatModal);
+            cancelNewChat.addEventListener('click', hideNewChatModal);
+            userSearch.addEventListener('input', searchUsers);
+            toggleSidebarBtn.addEventListener('click', toggleSidebar);
+            
+            // Инициализация волновых эффектов
+            initWaveBars();
+            
+            // Обработчики для загрузки изображений и голосовых сообщений
+            uploadImageBtn.addEventListener('click', () => imageUpload.click());
+            imageUpload.addEventListener('change', handleImageUpload);
+            recordVoiceBtn.addEventListener('click', startRecording);
+            stopRecordingBtn.addEventListener('click', stopRecording);
+            
+            // Обработчик для отправки сообщений
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+        
+        // Запись голосовых сообщений
+        function startRecording() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        audioChunks = [];
+                        mediaRecorder = new MediaRecorder(stream);
+                        
+                        mediaRecorder.ondataavailable = (event) => {
+                            audioChunks.push(event.data);
+                        };
+                        
+                        mediaRecorder.onstop = sendVoiceMessage;
+                        
+                        mediaRecorder.start();
+                        recordingStartTime = Date.now();
+                        startRecordingTimer();
+                        recordingUI.classList.remove('hidden');
+                        startWaveAnimation();
+                    })
+                    .catch(error => {
+                        console.error('Error accessing microphone:', error);
+                        alert('Cannot access microphone. Please check permissions.');
+                    });
+            } else {
+                alert('Your browser does not support audio recording');
+            }
+        }
+
+        // Остановка записи
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                stopRecordingTimer();
+                recordingUI.classList.add('hidden');
+                stopWaveAnimation();
+            }
+        }
+
+        // Отправка голосового сообщения
+        function sendVoiceMessage() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const duration = Math.round((Date.now() - recordingStartTime) / 1000);
+            
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const timestamp = Date.now();
+            const storageRef = storage.ref(`voice/${user.uid}_${timestamp}.webm`);
+
+            // Показываем индикатор загрузки
+            const originalHTML = recordVoiceBtn.innerHTML;
+            recordVoiceBtn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
+            recordVoiceBtn.disabled = true;
+
+            // Загружаем аудио в Storage
+            storageRef.put(audioBlob)
+                .then(snapshot => snapshot.ref.getDownloadURL())
+                .then(voiceUrl => {
+                    // Отправляем сообщение с голосом
+                    const messageData = {
+                        uid: user.uid,
+                        name: user.displayName || 'Anonymous',
+                        voiceUrl: voiceUrl,
+                        voiceDuration: duration,
+                        timestamp: timestamp,
+                        isAdmin: user.email === ADMIN_EMAIL
+                    };
+
+                    if (currentChat === 'general') {
+                        database.ref('messages/' + timestamp).set(messageData);
+                    } else {
+                        const chatId = [user.uid, currentChat].sort().join('_');
+                        database.ref('privateMessages/' + chatId + '/' + timestamp).set(messageData);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error uploading voice message:', error);
+                    alert('Failed to send voice message: ' + error.message);
+                })
+                .finally(() => {
+                    recordVoiceBtn.innerHTML = originalHTML;
+                    recordVoiceBtn.disabled = false;
+                });
+        }
+
+        // Таймер записи
+        function startRecordingTimer() {
+            recordingTimerInterval = setInterval(() => {
+                const elapsedSeconds = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                recordingTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopRecordingTimer() {
+            clearInterval(recordingTimerInterval);
+        }
+
+        // Анимация волны
+        function initWaveBars() {
+            waveBars = Array.from(voiceWave.querySelectorAll('.wave-bar'));
+        }
+
+        function startWaveAnimation() {
+            waveBars.forEach((bar, index) => {
+                setInterval(() => {
+                    const height = 5 + Math.random() * 10;
+                    bar.style.height = `${height}px`;
+                }, 100 + index * 50);
+            });
+        }
+
+        function stopWaveAnimation() {
+            waveBars.forEach(bar => {
+                bar.style.height = '5px';
+            });
+        }
+        
+        // Переключение между чатами
+        function switchToChat(chatId) {
+            // Обновить активный элемент в списке
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const activeItem = document.querySelector(`.user-item[data-uid="${chatId}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+            
+            // Сохранить текущий чат
+            currentChat = chatId;
+            
+            // Очистить сообщения
+            chatMessages.innerHTML = '';
+            
+            if (chatId === 'general') {
+                // Переключиться на общий чат
+                chatTitle.textContent = 'ZovApp Chat - General';
+                currentChatName.textContent = 'General Chat';
+                currentChatStatus.textContent = 'Everyone\'s conversation';
+                currentChatAvatar.src = 'https://ui-avatars.com/api/?name=General+Chat&background=4f46e5&color=fff';
+                
+                // Загрузить общие сообщения
+                loadGeneralMessages();
+            } else {
+                // Переключиться на приватный чат
+                const userData = onlineUsers[chatId] || {};
+                const userName = userData.name || 'User';
+                
+                chatTitle.textContent = `ZovApp Chat - ${userName}`;
+                currentChatName.textContent = userName;
+                currentChatStatus.textContent = userData.online ? 'Online' : 'Offline';
+                currentChatAvatar.src = userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=4f46e5&color=fff`;
+                
+                // Загрузить приватные сообщения
+                loadPrivateMessages(chatId);
+            }
+        }
+        
+        // Загрузка общих сообщений
+        function loadGeneralMessages() {
+            // Отписаться от предыдущих слушателей
+            database.ref('messages').off();
+            
+            // Подписаться на общие сообщения
+            database.ref('messages').orderByChild('timestamp').limitToLast(50).on('child_added', (snapshot) => {
+                displayMessage(snapshot.val(), snapshot.key, 'general');
+            });
+            
+            database.ref('messages').on('child_changed', (snapshot) => {
+                displayMessage(snapshot.val(), snapshot.key, 'general');
+            });
+            
+            database.ref('messages').on('child_removed', (snapshot) => {
+                const messageElement = document.getElementById('message-' + snapshot.key);
+                if (messageElement) messageElement.remove();
+            });
+        }
+        
+        // Загрузка приватных сообщений
+        function loadPrivateMessages(userId) {
+            // Отписаться от предыдущих слушателей
+            database.ref('messages').off();
+            
+            const currentUser = auth.currentUser.uid;
+            const chatId = [currentUser, userId].sort().join('_');
+            
+            // Подписаться на приватные сообщения
+            privateMessagesRef.child(chatId).orderByChild('timestamp').limitToLast(50).on('child_added', (snapshot) => {
+                displayMessage(snapshot.val(), snapshot.key, 'private');
+            });
+            
+            privateMessagesRef.child(chatId).on('child_changed', (snapshot) => {
+                displayMessage(snapshot.val(), snapshot.key, 'private');
+            });
+            
+            privateMessagesRef.child(chatId).on('child_removed', (snapshot) => {
+                const messageElement = document.getElementById('message-' + snapshot.key);
+                if (messageElement) messageElement.remove();
+            });
+            
+            // Пометить сообщения как прочитанные
+            markMessagesAsRead(chatId, currentUser);
+        }
+        
+        // Отправка сообщения
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
+            
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            const timestamp = Date.now();
+            
+            if (currentChat === 'general') {
+                // Отправка в общий чат
+                const messageData = {
+                    uid: user.uid,
+                    name: user.displayName || 'Anonymous',
+                    text: messageText,
+                    timestamp: timestamp,
+                    isAdmin: user.email === ADMIN_EMAIL
+                };
+                
+                database.ref('messages/' + timestamp).set(messageData)
+                    .then(() => {
+                        messageInput.value = '';
+                    })
+                    .catch((error) => {
+                        console.error('Error sending message:', error);
+                        alert('Failed to send message: ' + error.message);
+                    });
+            } else {
+                // Отправка в приватный чат
+                const messageData = {
+                    uid: user.uid,
+                    name: user.displayName || 'Anonymous',
+                    text: messageText,
+                    timestamp: timestamp,
+                    recipientId: currentChat,
+                    isAdmin: user.email === ADMIN_EMAIL
+                };
+                
+                const chatId = [user.uid, currentChat].sort().join('_');
+                
+                privateMessagesRef.child(chatId + '/' + timestamp).set(messageData)
+                    .then(() => {
+                        messageInput.value = '';
+                        
+                        // Добавить чат в список, если его еще нет
+                        addChatToUserList(currentChat);
+                    })
+                    .catch((error) => {
+                        console.error('Error sending private message:', error);
+                        alert('Failed to send message: ' + error.message);
+                    });
+            }
+        }
+        
+        // Добавление чат в список пользователя
+        function addChatToUserList(userId) {
+            const currentUser = auth.currentUser.uid;
+            
+            // Проверить, есть ли уже этот чат в списке
+            userChatsRef.child(currentUser).child(userId).once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    // Добавить чат в список пользователя
+                    userChatsRef.child(currentUser).child(userId).set(true);
+                    
+                    // Также добавить себя в список чатов другого пользователя
+                    userChatsRef.child(userId).child(currentUser).set(true);
+                }
+            });
+        }
+        
+        // Отображение списка пользователей (чатов)
+        function renderUsersList(chats) {
+            usersList.innerHTML = '';
+            
+            // Получить информацию о пользователях из списка чатов
+            Object.keys(chats).forEach(userId => {
+                if (userId === auth.currentUser.uid) return; // Пропустить текущего пользователя
+                
+                usersRef.child(userId).once('value', (snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        const isOnline = onlineUsers[userId] && onlineUsers[userId].online;
+                        const userItem = document.createElement('div');
+                        userItem.className = 'user-item p-3 rounded-lg cursor-pointer mb-1 flex items-center';
+                        userItem.dataset.uid = userId;
+                        
+                        userItem.innerHTML = `
+                            <div class="relative mr-3">
+                                <img src="${userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=4f46e5&color=fff`}" 
+                                     class="w-10 h-10 rounded-full">
+                                ${isOnline ? '<span class="online-indicator"></span>' : ''}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium truncate">${userData.name}</p>
+                                <p class="text-sm text-gray-500 truncate">${isOnline ? 'Online' : 'Offline'}</p>
+                            </div>
+                            <span class="unread-badge hidden">0</span>
+                            <button class="delete-chat-btn ml-2 text-red-500 hover:text-red-700 p-1 rounded-full" onclick="deleteChat('${userId}', event)">
+                                <span class="material-icons text-sm">close</span>
+                            </button>
+                        `;
+                        
+                        userItem.addEventListener('click', () => switchToChat(userId));
+                        usersList.appendChild(userItem);
+                    }
+                });
+            });
+        }
+        
+        // Удаление чата с пользователем
+        function deleteChat(userId, event) {
+            event.stopPropagation(); // Предотвращаем переключение чата
+            
+            if (confirm('Are you sure you want to delete this chat? All messages will be removed.')) {
+                const currentUser = auth.currentUser.uid;
+                const chatId = [currentUser, userId].sort().join('_');
+                
+                // Удалить чат из списка пользователя
+                userChatsRef.child(currentUser).child(userId).remove()
+                    .then(() => {
+                        // Если мы находимся в этом чате, переключиться на общий
+                        if (currentChat === userId) {
+                            switchToChat('general');
+                        }
+                        
+                        // Удалить все сообщения из этого чата
+                        return privateMessagesRef.child(chatId).remove();
+                    })
+                    .catch((error) => {
+                        console.error('Error deleting chat:', error);
+                        alert('Failed to delete chat: ' + error.message);
+                    });
+            }
+        }
+        
+        // Обновление онлайн-статуса пользователей
+        function updateOnlineUsers(users) {
+            Object.entries(users).forEach(([userId, userData]) => {
+                if (onlineUsers[userId]) {
+                    onlineUsers[userId].name = userData.name;
+                    onlineUsers[userId].avatar = userData.avatar;
+                }
+            });
+            updateUsersOnlineStatus();
+        }
+        
+        function updateUsersOnlineStatus() {
+            document.querySelectorAll('.user-item').forEach(item => {
+                const userId = item.dataset.uid;
+                if (userId === 'general') return;
+                
+                const statusElem = item.querySelector('.text-gray-500');
+                const onlineIndicator = item.querySelector('.online-indicator');
+                const isOnline = onlineUsers[userId] && onlineUsers[userId].online;
+                
+                if (statusElem) {
+                    statusElem.textContent = isOnline ? 'Online' : 'Offline';
+                }
+                
+                if (onlineIndicator) {
+                    if (isOnline) {
+                        onlineIndicator.style.display = 'block';
+                    } else {
+                        onlineIndicator.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Обновить статус текущего чата, если это приватный чат
+            if (currentChat !== 'general') {
+                const isOnline = onlineUsers[currentChat] && onlineUsers[currentChat].online;
+                currentChatStatus.textContent = isOnline ? 'Online' : 'Offline';
+            }
+        }
+        
+        // Показать модальное окно нового чата
+        function showNewChatModal() {
+            newChatModal.style.display = 'block';
+            userSearch.value = '';
+            searchResults.innerHTML = '';
+        }
+        
+        // Скрыть модальное окно нового чата
+        function hideNewChatModal() {
+            newChatModal.style.display = 'none';
+        }
+        
+        // Поиск пользователей
+        function searchUsers() {
+            const searchTerm = userSearch.value.trim().toLowerCase();
+            searchResults.innerHTML = '';
+            
+            if (searchTerm.length < 3) return;
+            
+            usersRef.once('value', (snapshot) => {
+                const users = snapshot.val() || {};
+                
+                Object.entries(users).forEach(([userId, userData]) => {
+                    if (userId === auth.currentUser.uid) return; // Пропустить текущего пользователя
+                    
+                    if (userData.email.toLowerCase().includes(searchTerm) || 
+                        (userData.name && userData.name.toLowerCase().includes(searchTerm))) {
+                        
+                        const userElement = document.createElement('div');
+                        userElement.className = 'p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-100';
+                        userElement.innerHTML = `
+                            <div class="flex items-center">
+                                <img src="${userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=4f46e5&color=fff`}" 
+                                     class="w-8 h-8 rounded-full mr-3">
+                                <div>
+                                    <p class="font-medium">${userData.name}</p>
+                                    <p class="text-sm text-gray-500">${userData.email}</p>
+                                </div>
+                            </div>
+                        `;
+                        
+                        userElement.addEventListener('click', () => {
+                            // Добавить пользователя в чаты и переключиться на чат с ним
+                            addChatToUserList(userId);
+                            switchToChat(userId);
+                            hideNewChatModal();
+                        });
+                        
+                        searchResults.appendChild(userElement);
+                    }
+                });
+                
+                if (searchResults.innerHTML === '') {
+                    searchResults.innerHTML = '<p class="p-3 text-gray-500">No users found</p>';
+                }
+            });
+        }
+        
+        // Переключение сайдбара на мобильных устройствах
+        function toggleSidebar() {
+            usersSidebar.classList.toggle('open');
+        }
+        
+        // Пометить сообщения как прочитанные
+        function markMessagesAsRead(chatId, userId) {
+            // Найти все непрочитанные сообщения от этого пользователя и пометить как прочитанные
+            privateMessagesRef.child(chatId).orderByChild('read').equalTo(false).once('value', (snapshot) => {
+                const updates = {};
+                snapshot.forEach((childSnapshot) => {
+                    const message = childSnapshot.val();
+                    if (message.uid !== userId) {
+                        updates[childSnapshot.key + '/read'] = true;
+                    }
+                });
+                
+                if (Object.keys(updates).length > 0) {
+                    privateMessagesRef.child(chatId).update(updates);
+                }
+            });
+        }
+
+        // Функция отображения сообщений
+        // Функция отображения сообщений с поддержкой кнопки редактирования имени пользователя
+function displayMessage(message, messageId) {
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message-container', 'relative');
+    messageElement.id = 'message-' + messageId;
+    
+    const isCurrentUser = message.uid === auth.currentUser?.uid;
+    const isAdmin = message.isAdmin || false;
+    
+    let contentHtml = '';
+    
+    if (message.text) {
+        // Парсим текст на куски с применением класса gradient-text
+        const parts = message.text.split('*');
+        contentHtml = parts.map((part, i) => {
+            if (i % 2 === 1) {
+                return `<span class="gradient-text">${part}</span>`;
+            } else {
+                return part;
+            }
+        }).join('');
+    }
+    
+    if (message.imageUrl) {
+        contentHtml += `
+            <div class="mt-1">
+                <img src="${message.imageUrl}" class="message-image" onclick="openModal('${message.imageUrl}')">
+            </div>
+        `;
+    }
+    
+    if (message.voiceUrl) {
+        contentHtml += `
+            <div class="mt-1">
+                <div class="voice-message">
+                    <button onclick="playVoiceMessage('${message.voiceUrl}', this)" class="bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700">
+                        <span class="material-icons">play_arrow</span>
+                    </button>
+                    <div class="voice-player">
+                        <input type="range" min="0" max="100" value="0" class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer voice-slider">
+                    </div>
+                    <span class="voice-duration">${formatDuration(message.voiceDuration)}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Получаем актуальное имя пользователя из базы данных
+    usersRef.child(message.uid).once('value', (snapshot) => {
+        const userData = snapshot.val();
+        const actualName = userData.name;
+
+        messageElement.innerHTML = `
+            <div class="bg-white p-3 rounded-lg shadow-sm max-w-xs md:max-w-md fade-in ${isCurrentUser ? 'ml-auto bg-indigo-100' : ''}">
+                <div class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-700'}">
+                    ${actualName}
+                    ${isAdmin ? '<span class="admin-badge">ADMIN</span>' : ''}
+                </div>
+                ${contentHtml}
+                <div class="text-xs text-gray-500 mt-1 text-right">${formatTime(message.timestamp)}</div>
+            </div>
+            ${(isCurrentUser || isAdminUser()) ? `
+            <div class="message-actions absolute ${isCurrentUser ? 'left-0' : 'right-0'} -top-3 flex space-x-1">
+                ${(isCurrentUser || isAdminUser()) ? `<button onclick="editMessage('${messageId}')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 p-1 rounded-full">
+                    <span class="material-icons text-sm">edit</span>
+                </button>` : ''}
+                ${(isCurrentUser || isAdminUser()) ? `<button onclick="deleteMessage('${messageId}')" class="bg-red-100 hover:bg-red-200 text-red-600 p-1 rounded-full">
+                    <span class="material-icons text-sm">delete</span>
+                </button>` : ''}
+                ${isAdminUser() ? `<button onclick="renameUser('${message.uid}')" class="bg-blue-100 hover:bg-blue-200 text-blue-600 p-1 rounded-full">
+                    <span class="material-icons text-sm">create</span>
+                </button>` : ''}
+            </div>
+            ` : ''}
+        `;
+
+        // Удаляем старую версию сообщения (если оно изменилось)
+        const existingMessage = document.getElementById('message-' + messageId);
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+}
+
+        // Проверка, является ли текущий пользователь администратором
+        function isAdminUser() {
+            const user = auth.currentUser;
+            return user && user.email === ADMIN_EMAIL;
+        }
+
+        // Форматирование времени
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Форматирование длительности аудио
+        function formatDuration(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Воспроизведение голосового сообщения
+        function playVoiceMessage(voiceUrl, button) {
+            const audio = new Audio(voiceUrl);
+            const slider = button.parentElement.querySelector('.voice-slider');
+            const playIcon = button.querySelector('.material-icons');
+            
+            audio.addEventListener('timeupdate', () => {
+                const progress = (audio.currentTime / audio.duration) * 100;
+                slider.value = progress || 0;
+            });
+            
+            audio.addEventListener('ended', () => {
+                playIcon.textContent = 'play_arrow';
+                slider.value = 0;
+            });
+            
+            if (audio.paused) {
+                audio.play();
+                playIcon.textContent = 'pause';
+            } else {
+                audio.pause();
+                playIcon.textContent = 'play_arrow';
+            }
+            
+            // Seek functionality
+            slider.addEventListener('input', () => {
+                const seekTime = (slider.value / 100) * audio.duration;
+                audio.currentTime = seekTime;
+            });
+        }
+
+        // Редактирование сообщения
+        function editMessage(messageId, type) {
+            let messageRef;
+            
+            if (type === 'general') {
+                messageRef = database.ref('messages/' + messageId);
+            } else {
+                const currentUser = auth.currentUser.uid;
+                const chatId = [currentUser, currentChat].sort().join('_');
+                messageRef = privateMessagesRef.child(chatId + '/' + messageId);
+            }
+            
+            messageRef.once('value').then((snapshot) => {
+                const message = snapshot.val();
+                if (message.imageUrl || message.voiceUrl) {
+                    alert('Media messages cannot be edited');
+                    return;
+                }
+                const newText = prompt('Edit your message:', message.text);
+                if (newText && newText.trim() !== '') {
+                    messageRef.update({
+                        text: newText.trim()
+                    });
+                }
+            });
+        }
+
+        // Удаление сообщения
+        function deleteMessage(messageId, type) {
+            if (confirm('Are you sure you want to delete this message?')) {
+                if (type === 'general') {
+                    database.ref('messages/' + messageId).remove();
+                } else {
+                    const currentUser = auth.currentUser.uid;
+                    const chatId = [currentUser, currentChat].sort().join('_');
+                    privateMessagesRef.child(chatId + '/' + messageId).remove();
+                }
+            }
+        }
+        
+        // Обработка загрузки изображения
+        function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.match('image.*')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const timestamp = Date.now();
+        const storageRef = storage.ref(`images/${user.uid}_${timestamp}`); // Используем appStorage!
+
+        // Показываем индикатор загрузки
+        const originalHTML = uploadImageBtn.innerHTML;
+        uploadImageBtn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
+        uploadImageBtn.disabled = true;
+
+        // Загружаем файл в Storage
+        storageRef.put(file)
+            .then(snapshot => snapshot.ref.getDownloadURL())
+            .then(imageUrl => {
+                // Отправляем сообщение с изображением
+                const messageData = {
+                    uid: user.uid,
+                    name: user.displayName || 'Anonymous',
+                    imageUrl: imageUrl,
+                    timestamp: timestamp,
+                    isAdmin: user.email === ADMIN_EMAIL
+                };
+
+                if (currentChat === 'general') {
+                    database.ref('messages/' + timestamp).set(messageData);
+                } else {
+                    const chatId = [user.uid, currentChat].sort().join('_');
+                    database.ref('privateMessages/' + chatId + '/' + timestamp).set(messageData);
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading image:', error);
+                alert('Failed to upload image: ' + error.message);
+            })
+            .finally(() => {
+                uploadImageBtn.innerHTML = originalHTML;
+                uploadImageBtn.disabled = false;
+            });
+    }
+
+        // Показ экрана чата
+        function showChatScreen(user) {
+            authScreen.classList.add('hidden');
+            chatScreen.classList.remove('hidden');
+            userNameDisplay.textContent = user.displayName || user.email;
+            
+            // Show admin badge if admin
+            if (user.email === ADMIN_EMAIL) {
+                adminBadge.classList.remove('hidden');
+            } else {
+                adminBadge.classList.add('hidden');
+            }
+            
+            // Load user avatar
+            database.ref('users/' + user.uid).once('value').then(snapshot => {
+                const userData = snapshot.val();
+                if (userData && userData.avatar) {
+                    userAvatar.src = userData.avatar;
+                } else {
+                    // Default avatar based on name
+                    const name = user.displayName || 'User';
+                    userAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff`;
+                }
+            }).catch(error => {
+                console.error('Error loading user data:', error);
+                const name = user.displayName || 'User';
+                userAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff`;
+            });
+            
+            // Инициализация приватных сообщений
+            initPrivateMessaging();
+            
+            // Load messages
+            loadGeneralMessages();
+        }
+        
+        // Инициализация при загрузке страницы
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                showChatScreen(user);
+            } else {
+                authScreen.classList.remove('hidden');
+                chatScreen.classList.add('hidden');
+                
+                // Reset forms
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+                document.getElementById('register-name').value = '';
+                document.getElementById('register-email').value = '';
+                document.getElementById('register-password').value = '';
+                document.getElementById('register-confirm-password').value = '';
+                document.getElementById('register-avatar').value = '';
+                registerAvatarPreview.src = 'https://ui-avatars.com/api/?name=New+User&background=4f46e5&color=fff';
+                
+                loginBtn.classList.remove('btn-loading');
+                loginBtn.innerHTML = '<span class="material-icons mr-2">login</span> Login';
+                loginBtn.disabled = false;
+                registerBtn.classList.remove('btn-loading');
+                registerBtn.innerHTML = '<span class="material-icons mr-2">person_add</span> Register';
+                registerBtn.disabled = false;
+            }
+        });
+
+        // Добавление обработчиков событий для кнопок аутентификации
+        loginTab.addEventListener('click', () => {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            loginTab.classList.add('text-indigo-600', 'border-indigo-600');
+            loginTab.classList.remove('text-gray-500');
+            registerTab.classList.remove('text-indigo-600', 'border-indigo-600');
+            registerTab.classList.add('text-gray-500');
+        });
+
+        registerTab.addEventListener('click', () => {
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            registerTab.classList.add('text-indigo-600', 'border-indigo-600');
+            registerTab.classList.remove('text-gray-500');
+            loginTab.classList.remove('text-indigo-600', 'border-indigo-600');
+            loginTab.classList.add('text-gray-500');
+        });
+
+        // Avatar preview for registration
+        registerAvatar.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    registerAvatarPreview.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Login function
+        loginBtn.addEventListener('click', () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                showLoginError('Please fill in all fields');
+                return;
+            }
+            
+            const originalHTML = loginBtn.innerHTML;
+            loginBtn.classList.add('btn-loading');
+            loginBtn.disabled = true;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Success
+                    showChatScreen(userCredential.user);
+                    loginBtn.classList.remove('btn-loading');
+                    loginBtn.innerHTML = originalHTML;
+                    loginBtn.disabled = false;
+                })
+                .catch((error) => {
+                    showLoginError(error.message);
+                    loginBtn.classList.remove('btn-loading');
+                    loginBtn.innerHTML = originalHTML;
+                    loginBtn.disabled = false;
+                });
+        });
+
+        // Register function
+        registerBtn.addEventListener('click', () => {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            const avatarFile = document.getElementById('register-avatar').files[0];
+            
+            if (!name || !email || !password || !confirmPassword) {
+                showRegisterError('Please fill in all fields');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showRegisterError('Passwords do not match');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showRegisterError('Password should be at least 6 characters');
+                return;
+            }
+            
+            const originalHTML = registerBtn.innerHTML;
+            registerBtn.classList.add('btn-loading');
+            registerBtn.disabled = true;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Update profile with name
+                    return userCredential.user.updateProfile({
+                        displayName: name
+                    }).then(() => {
+                        // Save user data to database
+                        const userData = {
+                            name: name,
+                            email: email,
+                            isAdmin: email === ADMIN_EMAIL
+                        };
+                        
+                        return database.ref('users/' + userCredential.user.uid).set(userData);
+                    });
+                })
+                .then(() => {
+                    // Success
+                    showChatScreen(auth.currentUser);
+                    registerBtn.classList.remove('btn-loading');
+                    registerBtn.innerHTML = originalHTML;
+                    registerBtn.disabled = false;
+                })
+                .catch((error) => {
+                    showRegisterError(error.message);
+                    registerBtn.classList.remove('btn-loading');
+                    registerBtn.innerHTML = originalHTML;
+                    registerBtn.disabled = false;
+                });
+        });
+
+        // Logout function
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                authScreen.classList.remove('hidden');
+                chatScreen.classList.add('hidden');
+                chatMessages.innerHTML = '';
+                adminBadge.classList.add('hidden');
+            });
+        });
+
+        // Error handling
+        function showLoginError(message) {
+            loginError.textContent = message;
+            loginError.classList.remove('hidden');
+            setTimeout(() => {
+                loginError.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showRegisterError(message) {
+            registerError.textContent = message;
+            registerError.classList.remove('hidden');
+            setTimeout(() => {
+                registerError.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Image modal functions
+        function openModal(imageUrl) {
+            modalImage.src = imageUrl;
+            imageModal.style.display = 'block';
+        }
+
+        function closeModal() {
+            imageModal.style.display = 'none';
+        }
+
+        // Close modal when clicking outside the image
+        imageModal.addEventListener('click', function(e) {
+            if (e.target === imageModal) {
+                closeModal();
+            }
+        });
+
+        // Close new chat modal when clicking outside
+        newChatModal.addEventListener('click', function(e) {
+            if (e.target === newChatModal) {
+                hideNewChatModal();
+            }
+        });
+
+// Функция изменения имени пользователя
+function renameUser(userId) {
+    const newName = prompt('Введите новое имя пользователя:');
+    if (newName) {
+        database.ref('users/' + userId).update({ name: newName });
+    }
+}// Функция обновления имени пользователя в сообщениях
+function updateUserNamesInChat() {
+    // Получаем все сообщения
+    const messagesElements = document.querySelectorAll('.message-container');
+
+    // Проходим по каждому сообщению
+    messagesElements.forEach(element => {
+        const messageUid = element.querySelector('.font-medium').dataset.uid;
+        const currentName = element.querySelector('.font-medium').innerText;
+
+        // Проверяем, существует ли пользователь с указанным UID
+        usersRef.child(messageUid).once('value', (snapshot) => {
+            const userData = snapshot.val();
+            if (userData && userData.name !== currentName) {
+                // Обновляем имя пользователя в сообщении
+                element.querySelector('.font-medium').innerText = userData.name;
+            }
+        });
+    });
+}
+
+// Вызывать после изменения имени пользователя
+
+
+    </script>
+    
+</body>
+</html>
